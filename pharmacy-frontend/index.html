@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Inventory Dashboard</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f4f8; color: #333; margin: 0; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .grid-span-2 { grid-column: span 2; }
+        .card { background-color: #ffffff; padding: 1.5rem 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+        header { text-align: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 1.5rem; margin-bottom: 1.5rem; }
+        h1 { color: #1e293b; margin-top:0; }
+        h2 { color: #475569; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem; display: inline-block; margin-top: 0;}
+        .subtitle { color: #64748b; margin-top: -0.5rem; margin-bottom: 1.5rem; }
+        .alert-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 5px solid #ef4444; padding: 1rem; margin-bottom: 0.75rem; border-radius: 6px; }
+        .alert-card.expiry-alert { border-left-color: #f97316; }
+        .alert-card p { margin: 0; font-size: 1.1rem; }
+        .alert-card .details { font-size: 0.9rem; color: #64748b; margin-top: 0.25rem; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; }
+        label { margin-bottom: 0.5rem; font-weight: 500; color: #475569; }
+        input, select, button { padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+        button { background-color: #3b82f6; color: white; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: #2563eb; }
+        .btn-danger { background-color: #dc2626; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        #message-area { text-align: center; font-weight: bold; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none; }
+        #message-area.success { background-color: #dcfce7; color: #166534; }
+        #message-area.error { background-color: #fee2e2; color: #991b1b; }
+        .medicine-list-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+        .medicine-list-item:last-child { border-bottom: none; }
+        .loader { border: 5px solid #e2e8f0; border-top: 5px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 2rem auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="grid-span-2">
+            <h1>Pharmacy Inventory Dashboard</h1>
+            <p>Live alerts for medicine stock, expiry dates, and master inventory management.</p>
+        </header>
+
+        <div id="message-area" class="grid-span-2"></div>
+        
+        <div class="card grid-span-2">
+            <h2>Add New Stock to Existing Medicine</h2>
+            <form id="add-stock-form" class="form-grid">
+                <div class="form-group">
+                    <label for="medicine-select">Medicine</label>
+                    <select id="medicine-select" required><option value="">Loading...</option></select>
+                </div>
+                <div class="form-group">
+                    <label for="batch-number">Batch Number</label>
+                    <input type="text" id="batch-number" required>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="number" id="quantity" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="expiry-date">Expiry Date</label>
+                    <input type="date" id="expiry-date" required>
+                </div>
+                <button type="submit">Add Stock to Inventory</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Low Stock Alerts</h2>
+            <p class="subtitle">These items are at or below their reorder level.</p>
+            <div id="low-stock-loader" class="loader"></div>
+            <div id="low-stock-alerts"></div>
+        </div>
+
+        <div class="card">
+            <h2>Expiry Alerts (Next 60 Days)</h2>
+            <p class="subtitle">These batches are expiring soon.</p>
+            <div id="expiry-alerts-loader" class="loader"></div>
+            <div id="expiry-alerts"></div>
+        </div>
+        
+        <div class="card grid-span-2">
+            <h2>Manage Master Medicine List</h2>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+                <div class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+                     <h3>Create New Medicine</h3>
+                     <form id="create-medicine-form" class="form-grid">
+                        <div class="form-group">
+                            <label for="new-med-name">Name</label>
+                            <input type="text" id="new-med-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-med-strength">Strength (e.g., 500mg)</label>
+                            <input type="text" id="new-med-strength">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-med-manufacturer">Manufacturer</label>
+                            <input type="text" id="new-med-manufacturer">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-med-reorder">Reorder Level</label>
+                            <input type="number" id="new-med-reorder" min="0" required>
+                        </div>
+                        <button type="submit">Create Medicine</button>
+                     </form>
+                </div>
+                 <div class="card" style="box-shadow: none; border: 1px solid #e2e8f0;">
+                    <h3>All Medicines</h3>
+                    <div id="all-medicines-loader" class="loader"></div>
+                    <div id="all-medicines-list"></div>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const apiBaseUrl = 'http://localhost:8080';
+        const lowStockContainer = document.getElementById('low-stock-alerts');
+        const expiryContainer = document.getElementById('expiry-alerts');
+        const medicineSelect = document.getElementById('medicine-select');
+        const messageArea = document.getElementById('message-area');
+        const allMedicinesContainer = document.getElementById('all-medicines-list');
+
+        const lowStockLoader = document.getElementById('low-stock-loader');
+        const expiryAlertsLoader = document.getElementById('expiry-alerts-loader');
+        const allMedicinesLoader = document.getElementById('all-medicines-loader');
+        
+        function showMessage(text, type = 'success') {
+            messageArea.textContent = text;
+            messageArea.className = type;
+            messageArea.style.display = 'block';
+            setTimeout(() => { messageArea.style.display = 'none'; }, 4000);
+        }
+
+        function handleError(container, loader, message = "Could not load data. Is the backend server running?") {
+            if (loader) loader.style.display = 'none';
+            container.innerHTML = `<div class="alert-card"><p>${message}</p></div>`;
+        }
+        
+        function fetchAllData() {
+            fetchLowStockAlerts();
+            fetchExpiryAlerts();
+            populateMedicineDropdown();
+            fetchAllMedicines();
+        }
+
+        function fetchLowStockAlerts() {
+            lowStockLoader.style.display = 'block';
+            fetch(`${apiBaseUrl}/api/alerts/low-stock`)
+                .then(response => response.ok ? response.json() : Promise.reject('Failed to load'))
+                .then(data => {
+                    lowStockLoader.style.display = 'none';
+                    lowStockContainer.innerHTML = '';
+                    if (data.length === 0) {
+                        lowStockContainer.innerHTML = '<p>All items are above their reorder level.</p>';
+                        return;
+                    }
+                    data.forEach(m => {
+                        const card = document.createElement('div');
+                        card.className = 'alert-card';
+                        card.innerHTML = `<p>${m.name} ${m.strength}</p><div class="details"><strong>Stock: ${m.totalStock}</strong> (Reorder: ${m.reorderLevel})</div>`;
+                        lowStockContainer.appendChild(card);
+                    });
+                }).catch(err => handleError(lowStockContainer, lowStockLoader));
+        }
+
+        function fetchExpiryAlerts() {
+            expiryAlertsLoader.style.display = 'block';
+            fetch(`${apiBaseUrl}/api/alerts/expiring`)
+                .then(response => response.ok ? response.json() : Promise.reject('Failed to load'))
+                .then(data => {
+                    expiryAlertsLoader.style.display = 'none';
+                    expiryContainer.innerHTML = '';
+                     if (data.length === 0) {
+                        expiryContainer.innerHTML = '<p>No items are expiring in the next 60 days.</p>';
+                        return;
+                    }
+                    data.forEach(b => {
+                        const card = document.createElement('div');
+                        card.className = 'alert-card expiry-alert';
+                        card.innerHTML = `<p>Batch #${b.batchNumber}</p><div class="details"><strong>Expires: ${b.expiryDate}</strong> | Qty: ${b.quantity}</div>`;
+                        expiryContainer.appendChild(card);
+                    });
+                }).catch(err => handleError(expiryContainer, expiryAlertsLoader));
+        }
+
+        function populateMedicineDropdown() {
+            fetch(`${apiBaseUrl}/api/medicines`)
+                .then(response => response.ok ? response.json() : Promise.reject('Failed to load'))
+                .then(data => {
+                    medicineSelect.innerHTML = '<option value="" disabled selected>Select a medicine</option>';
+                    data.forEach(m => {
+                        const option = document.createElement('option');
+                        option.value = m.id;
+                        option.textContent = `${m.name} (${m.strength || 'N/A'})`;
+                        medicineSelect.appendChild(option);
+                    });
+                }).catch(err => {
+                    medicineSelect.innerHTML = '<option value="">Could not load medicine</option>';
+                });
+        }
+        
+        function fetchAllMedicines() {
+            allMedicinesLoader.style.display = 'block';
+            fetch(`${apiBaseUrl}/api/medicines`)
+                .then(response => response.ok ? response.json() : Promise.reject('Failed to load'))
+                .then(data => {
+                    allMedicinesLoader.style.display = 'none';
+                    allMedicinesContainer.innerHTML = '';
+                    if (data.length === 0) {
+                        allMedicinesContainer.innerHTML = '<p>No medicines in inventory. Add one using the form above.</p>';
+                        return;
+                    }
+                    data.forEach(m => {
+                        const item = document.createElement('div');
+                        item.className = 'medicine-list-item';
+                        item.innerHTML = `
+                            <div>
+                                <p style="margin:0; font-weight: 500;">${m.name} ${m.strength}</p>
+                                <span style="font-size: 0.8rem; color: #64748b;">${m.manufacturer} | Reorder at ${m.reorderLevel}</span>
+                            </div>
+                            <button class="btn-danger" data-id="${m.id}">Delete</button>
+                        `;
+                        allMedicinesContainer.appendChild(item);
+                    });
+                }).catch(err => handleError(allMedicinesContainer, allMedicinesLoader, "Could not load medicine list."));
+        }
+        
+        document.getElementById('add-stock-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const payload = {
+                medicineId: document.getElementById('medicine-select').value,
+                batchNumber: document.getElementById('batch-number').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                expiryDate: document.getElementById('expiry-date').value,
+            };
+            if (!payload.medicineId) {
+                showMessage('Please select a medicine.', 'error');
+                return;
+            }
+            fetch(`${apiBaseUrl}/api/stock`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(response => {
+                if (response.ok) {
+                    showMessage('Stock added successfully!');
+                    this.reset();
+                    fetchAllData();
+                } else {
+                    showMessage('Failed to add stock.', 'error');
+                }
+            }).catch(err => showMessage('Error: Could not connect to server.', 'error'));
+        });
+
+        document.getElementById('create-medicine-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('new-med-name').value,
+                strength: document.getElementById('new-med-strength').value,
+                manufacturer: document.getElementById('new-med-manufacturer').value,
+                reorderLevel: parseInt(document.getElementById('new-med-reorder').value),
+            };
+            fetch(`${apiBaseUrl}/api/medicines`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(response => {
+                if (response.ok) {
+                    showMessage('Medicine created successfully!');
+                    this.reset();
+                    fetchAllData();
+                } else {
+                    showMessage('Failed to create medicine.', 'error');
+                }
+            }).catch(err => showMessage('Error: Could not connect to server.', 'error'));
+        });
+        
+        allMedicinesContainer.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON' && e.target.dataset.id) {
+                const medicineId = e.target.dataset.id;
+                const medicineName = e.target.parentElement.querySelector('p').textContent;
+                if (confirm(`Are you sure you want to delete "${medicineName}" and all of its stock? This action cannot be undone.`)) {
+                     fetch(`${apiBaseUrl}/api/medicines/${medicineId}`, { method: 'DELETE' })
+                        .then(response => {
+                            if(response.ok) {
+                                showMessage('Medicine deleted successfully!');
+                                fetchAllData();
+                            } else {
+                                showMessage('Failed to delete medicine.', 'error');
+                            }
+                        }).catch(err => showMessage('Error: Could not connect to server.', 'error'));
+                }
+            }
+        });
+
+        fetchAllData();
+    });
+    </script>
+</body>
+</html>
